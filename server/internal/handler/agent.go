@@ -1010,11 +1010,11 @@ func taskCancellationActorToResponse(t db.AgentTaskQueue) *TaskCancellationActor
 // rendered in transcripts that frequently end up in screen shares,
 // screenshots, and recordings, so this function is the only guard.
 //
-//   - For standard tasks, it validates the adjacent workspace/task segments
-//     by their stable ID suffixes, then strips everything before them. This
-//     accepts both legacy `<wsUUID>/<taskShort>` roots and readable
-//     `<workspaceSlug>-<wsShort>/<issueKey>-<taskShort>` roots without treating
-//     the labels as identity.
+//   - For standard tasks, it validates the adjacent workspace/task segments,
+//     then strips everything before them. This accepts legacy
+//     `<wsUUID>/<taskShort>` roots, `<workspaceSlug>-<wsShort>` roots, and
+//     current bare `<workspaceSlug>` roots without treating the labels as
+//     identity.
 //   - For local_directory tasks the absolute path lives outside the envRoot
 //     layout. We try to recognise common home-directory prefixes
 //     (`/Users/<name>/`, `/home/<name>/`, `<drive>:/Users/<name>/`) and strip
@@ -1039,7 +1039,15 @@ func relativeWorkDir(workDir, workspaceID, taskID string) string {
 
 	if workspaceID != "" && taskID != "" {
 		parts := strings.Split(normalized, "/")
+		// A bare-slug workspace segment cannot be bound to the workspace ID,
+		// so the segment shape alone accepts it. A match at or above the
+		// account-name segment would start the rendered suffix with (or
+		// include) the account name; never let the suffix begin there.
+		usernameAt := homeUsernameSegmentIndex(parts)
 		for i := 0; i+1 < len(parts); i++ {
+			if i <= usernameAt {
+				continue
+			}
 			if matchesWorkspacePathSegment(parts[i], workspaceID) &&
 				matchesTaskPathSegment(parts[i+1], taskID) {
 				return strings.Join(parts[i:], "/")
@@ -1054,12 +1062,43 @@ func relativeWorkDir(workDir, workspaceID, taskID string) string {
 	return basename(normalized)
 }
 
+// homeUsernameSegmentIndex returns the position of the account-name segment in
+// a normalized path shaped like `/Users/<name>/...`, `/home/<name>/...`, or
+// `<drive>:/Users/<name>/...`, or -1 when the path has no such prefix.
+func homeUsernameSegmentIndex(parts []string) int {
+	start := 0
+	if len(parts) > 0 && (parts[0] == "" || (len(parts[0]) == 2 && parts[0][1] == ':')) {
+		start = 1
+	}
+	if start+2 > len(parts) {
+		return -1
+	}
+	base := strings.ToLower(parts[start])
+	if base != "users" && base != "home" {
+		return -1
+	}
+	if parts[start+1] == "" {
+		return -1
+	}
+	return start + 1
+}
+
+// workspaceLabelSegmentPattern matches the bare-slug workspace directory
+// layout. The shape mirrors workspace creation validation; the length bound
+// matches what execenv.workspacePathSegment can emit.
+var workspaceLabelSegmentPattern = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
+
+const maxWorkspaceLabelSegmentLen = 24
+
 func matchesWorkspacePathSegment(segment, workspaceID string) bool {
 	lower := strings.ToLower(segment)
 	legacy := legacyTaskDirSegment(workspaceID)
 	current := strings.ToLower(taskDirSegment(workspaceID))
-	return strings.EqualFold(segment, workspaceID) ||
-		strings.HasSuffix(lower, "-"+legacy) || strings.HasSuffix(lower, "-"+current)
+	if strings.EqualFold(segment, workspaceID) ||
+		strings.HasSuffix(lower, "-"+legacy) || strings.HasSuffix(lower, "-"+current) {
+		return true
+	}
+	return len(lower) <= maxWorkspaceLabelSegmentLen && workspaceLabelSegmentPattern.MatchString(lower)
 }
 
 func matchesTaskPathSegment(segment, taskID string) bool {

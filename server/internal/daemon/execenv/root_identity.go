@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -201,7 +202,23 @@ func validTaskRootSegment(segment, id string, workspace bool) bool {
 	if !workspace && segment == key {
 		return true
 	}
-	return strings.HasSuffix(segment, "-"+key)
+	if strings.HasSuffix(segment, "-"+key) {
+		return true
+	}
+	// Workspace directories are named by the bare workspace slug, which has
+	// no derivable relationship to the workspace ID. The slug shape alone
+	// accepts the segment; the task segment beside it and the owner record
+	// remain the identity gates.
+	return workspace && validWorkspaceLabelSegment(segment)
+}
+
+// validWorkspaceLabelSegment accepts the bare-slug workspace directory layout.
+// The shape mirrors workspace creation validation and the bound matches what
+// workspacePathSegment can emit.
+var workspaceLabelPattern = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
+
+func validWorkspaceLabelSegment(segment string) bool {
+	return segment != "" && len(segment) <= readablePathSegmentMax && workspaceLabelPattern.MatchString(segment)
 }
 
 // ValidateEnvRootOwnerPath proves that envRoot is the two-level task root
@@ -359,7 +376,11 @@ func PruneTaskRootIndex(workspacesRoot string, retention time.Duration, now time
 }
 
 // findOwnedTaskRoot adopts roots created before the stable index existed. The
-// owner marker is authoritative; readable suffixes only narrow the scan.
+// owner marker is authoritative; the scan is deliberately not narrowed by
+// workspace directory names — the bare-slug layout carries no derivable
+// relationship to the workspace ID, and older layouts named the directory by
+// the workspace ID or its tail. Only the task-key match and the owner marker
+// accept a candidate.
 func findOwnedTaskRoot(params RootDirParams) (string, error) {
 	workspaceEntries, err := os.ReadDir(params.WorkspacesRoot)
 	if errors.Is(err, os.ErrNotExist) {
@@ -368,17 +389,12 @@ func findOwnedTaskRoot(params RootDirParams) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("execenv: scan existing task roots: %w", err)
 	}
-	workspaceSuffix := strings.ToLower(taskKey(params.WorkspaceID))
 	var found string
 	for _, workspaceEntry := range workspaceEntries {
 		if !workspaceEntry.IsDir() || strings.HasPrefix(workspaceEntry.Name(), ".") {
 			continue
 		}
-		name := workspaceEntry.Name()
-		if name != params.WorkspaceID && !strings.HasSuffix(strings.ToLower(name), "-"+workspaceSuffix) {
-			continue
-		}
-		workspaceDir := filepath.Join(params.WorkspacesRoot, name)
+		workspaceDir := filepath.Join(params.WorkspacesRoot, workspaceEntry.Name())
 		taskEntries, readErr := os.ReadDir(workspaceDir)
 		if readErr != nil {
 			return "", fmt.Errorf("execenv: read candidate workspace root %s: %w", workspaceDir, readErr)

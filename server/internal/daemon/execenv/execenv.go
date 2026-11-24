@@ -416,9 +416,31 @@ func PredictRootDir(params RootDirParams) string {
 	}
 	return filepath.Join(
 		params.WorkspacesRoot,
-		readablePathSegment(params.WorkspaceSlug, "workspace", params.WorkspaceID),
+		workspacePathSegment(params.WorkspaceSlug, params.WorkspaceID),
 		readablePathSegment(params.IssueIdentifier, "task", params.TaskID),
 	)
+}
+
+// workspacePathSegment names a workspace directory by its slug alone. Slugs
+// are unique, immutable, and already lowercase-kebab (validated at workspace
+// creation as `^[a-z0-9]+(-[a-z0-9]+)*$`), so the bare label needs no
+// identity suffix; the task segment below it and the env root's owner record
+// stay the identity gates. Workspaces without a usable slug keep the suffixed
+// fallback so their directory remains verifiable against the workspace ID.
+func workspacePathSegment(slug, workspaceID string) string {
+	prefix := strings.ToLower(strings.TrimSpace(slug))
+	prefix = nonAlphanumeric.ReplaceAllString(prefix, "-")
+	prefix = strings.Trim(prefix, "-")
+	if len(prefix) > readablePathSegmentMax {
+		prefix = strings.TrimRight(prefix[:readablePathSegmentMax], "-")
+	}
+	if prefix == "" {
+		// UUIDv7's leading bits are a timestamp shared by burst-created rows.
+		// taskKey takes the random tail; it is equally suitable for workspace
+		// UUIDs.
+		return "workspace-" + strings.ToLower(taskKey(workspaceID))
+	}
+	return prefix
 }
 
 // readablePathSegment converts a user-controlled label into a bounded,

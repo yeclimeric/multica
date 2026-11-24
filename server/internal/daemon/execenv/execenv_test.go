@@ -49,7 +49,7 @@ func TestPredictRootDir(t *testing.T) {
 		TaskID:          "5c57b65b-ee7a-4603-a72d-b659c34a1dc3",
 		IssueIdentifier: "MUL-6063",
 	})
-	want := filepath.Join("/root", "asset-feed-a548b2390cb2", "mul-6063-b659c34a1dc3")
+	want := filepath.Join("/root", "asset-feed", "mul-6063-b659c34a1dc3")
 	if got != want {
 		t.Errorf("PredictRootDir = %q, want %q", got, want)
 	}
@@ -428,6 +428,30 @@ func TestPredictRootDirWorstCaseLabelsStayWithinWindowsBudget(t *testing.T) {
 	// The readable layout must not consume a larger Windows path budget.
 	if got, max := len(rel), 36+1+taskKeyLen; got > max {
 		t.Fatalf("relative env root %q has length %d, want <= %d", rel, got, max)
+	}
+}
+
+func TestWorkspacePathSegment(t *testing.T) {
+	t.Parallel()
+	const workspaceID = "a05b0e10-ee7a-4603-a72d-a548b2390cb2"
+	tests := []struct {
+		name string
+		slug string
+		want string
+	}{
+		{name: "validated slug passes through", slug: "gnosis", want: "gnosis"},
+		{name: "separators and traversal", slug: `../Asset\\Feed/Team`, want: "asset-feed-team"},
+		{name: "non ascii removed", slug: "日本語 Product", want: "product"},
+		{name: "long slug is bounded", slug: strings.Repeat("a", 100), want: strings.Repeat("a", readablePathSegmentMax)},
+		{name: "empty label falls back to verifiable suffix", slug: "...", want: "workspace-a548b2390cb2"},
+		{name: "missing slug falls back to verifiable suffix", slug: "", want: "workspace-a548b2390cb2"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := workspacePathSegment(tt.slug, workspaceID); got != tt.want {
+				t.Fatalf("workspacePathSegment(%q) = %q, want %q", tt.slug, got, tt.want)
+			}
+		})
 	}
 }
 

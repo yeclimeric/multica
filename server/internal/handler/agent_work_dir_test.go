@@ -68,6 +68,30 @@ func TestRelativeWorkDir(t *testing.T) {
 			expected: "asset-feed-" + wsSeg + "/mul-6063-" + taskSeg + "/workdir",
 		},
 		{
+			name:     "bare-slug envRoot path strips workspaces root",
+			workDir:  "/Users/alice/multica_workspaces/gnosis/mul-6063-" + taskSeg + "/workdir",
+			wsID:     wsID,
+			taskID:   taskID,
+			expected: "gnosis/mul-6063-" + taskSeg + "/workdir",
+		},
+		{
+			name:     "bare-slug envRoot outside home still strips to the root",
+			workDir:  "/opt/multica/gnosis/mul-6063-" + taskSeg + "/workdir",
+			wsID:     wsID,
+			taskID:   taskID,
+			expected: "gnosis/mul-6063-" + taskSeg + "/workdir",
+		},
+		{
+			// The bare-slug layout accepts any slug-shaped workspace segment,
+			// so a task-keyed directory directly under home could otherwise
+			// start the suffix with the account name.
+			name:     "task-keyed directory directly under home never renders the account name",
+			workDir:  "/Users/alice/mul-6063-5c57b65b/repo",
+			wsID:     wsID,
+			taskID:   taskID,
+			expected: "mul-6063-5c57b65b/repo",
+		},
+		{
 			name:     "legacy readable envRoot keeps privacy-safe display",
 			workDir:  "/Users/alice/multica_workspaces/asset-feed-a05b0e10/mul-6063-5c57b65b/workdir",
 			wsID:     wsID,
@@ -230,7 +254,7 @@ func TestTaskToResponseDerivesPrivateDurableWorkDir(t *testing.T) {
 }
 
 // TestStableIDSuffixMatchesDaemon pins the handler's path validation to the
-// current readable suffixes used by execenv.PredictRootDir. The table above
+// current workspace layout used by execenv.PredictRootDir. The table above
 // separately pins compatibility with both historical layouts.
 func TestStableIDSuffixMatchesDaemon(t *testing.T) {
 	const (
@@ -245,7 +269,7 @@ func TestStableIDSuffixMatchesDaemon(t *testing.T) {
 		TaskID:          taskID,
 		IssueIdentifier: "MUL-6063",
 	})
-	expected := workspacesRoot + "/asset-feed-" + taskDirSegment(workspaceID) + "/mul-6063-" + taskDirSegment(taskID)
+	expected := workspacesRoot + "/asset-feed/mul-6063-" + taskDirSegment(taskID)
 	if daemonRoot != expected {
 		t.Fatalf("daemon PredictRootDir = %q, handler-side suffix expectation = %q", daemonRoot, expected)
 	}

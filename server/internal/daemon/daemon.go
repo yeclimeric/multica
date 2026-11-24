@@ -3813,9 +3813,10 @@ func (d *Daemon) reconcileIsolatedCoAuthoredByHooks(cache coAuthoredByPublisher,
 // older releases still, no marker at all — and they live under the layout that
 // release used: <workspaces root>/<workspace ID>/<task key>. So for an owner
 // record that names no workspace, the directory name is the evidence, and it
-// has to BE the workspace ID. The readable layout that replaced it always
-// appends a suffix (`<slug>-<id tail>`), so a bare workspace UUID can only be
-// one of those older roots and this can never alias a modern one.
+// has to BE the workspace ID. Every layout since writes the workspace ID into
+// the owner record — suffixed `<slug>-<id tail>` and bare `<slug>` alike — so
+// a bare workspace UUID directory reaching this branch is one of those older
+// roots and can never alias a modern one.
 //
 // An unreadable marker attributes nothing: skipping costs a stale hook in one
 // workdir, guessing would rewrite hooks in another workspace's.
