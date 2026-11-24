@@ -541,7 +541,7 @@ func LoadConfig(overrides Overrides) (Config, error) {
 		runtimeName = overrides.RuntimeName
 	}
 
-	// Workspaces root: override > env > default (~/multica_workspaces or ~/multica_workspaces_<profile>)
+	// Workspaces root: override > env > default (~/multica_workspaces or ~/Multica/<profile>)
 	workspacesRoot, err := ResolveWorkspacesRoot(profile, overrides.WorkspacesRoot)
 	if err != nil {
 		return Config{}, err
@@ -749,7 +749,7 @@ const TaskWorkspacesRootEnv = "MULTICA_TASK_WORKSPACES_ROOT"
 // ResolveWorkspacesRoot returns the absolute path that the daemon and CLI
 // should treat as the workspaces root. Resolution order: explicit override >
 // MULTICA_WORKSPACES_ROOT env > default ($HOME/multica_workspaces, or
-// $HOME/multica_workspaces_<profile> for a named profile). Read-only callers
+// $HOME/Multica/<profile> for a named profile). Read-only callers
 // (e.g. `multica daemon disk-usage`) use this directly so they pick the same
 // directory the running daemon would have picked. Inside a managed task use
 // TaskWorkspacesRootEnv instead — see resolveDiskUsageRoot.
@@ -763,8 +763,13 @@ func ResolveWorkspacesRoot(profile, override string) (string, error) {
 		if err != nil {
 			return "", fmt.Errorf("resolve home directory: %w (set MULTICA_WORKSPACES_ROOT to override)", err)
 		}
+		// Named profiles keep their own subtree under ~/Multica: a flat shared
+		// root would let one daemon's GC pass treat another profile's task
+		// dirs as orphans (unreadable meta → deleted after GCOrphanTTL), and
+		// nesting a profile root under another root's tree would orphan it the
+		// same way.
 		if profile != "" {
-			root = filepath.Join(home, "multica_workspaces_"+profile)
+			root = filepath.Join(home, "Multica", profile)
 		} else {
 			root = filepath.Join(home, "multica_workspaces")
 		}

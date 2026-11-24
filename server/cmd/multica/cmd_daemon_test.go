@@ -808,7 +808,7 @@ func TestEnumerateDiskUsageRoots(t *testing.T) {
 	if roots[0].Profile != "" || roots[0].Root != filepath.Join(home, "multica_workspaces") {
 		t.Fatalf("roots[0] = %+v, want default root first", roots[0])
 	}
-	if roots[1].Profile != "desktop-host" || roots[1].Root != filepath.Join(home, "multica_workspaces_desktop-host") {
+	if roots[1].Profile != "desktop-host" || roots[1].Root != filepath.Join(home, "Multica", "desktop-host") {
 		t.Fatalf("roots[1] = %+v, want desktop-host root", roots[1])
 	}
 }
@@ -823,7 +823,7 @@ func TestPrintAggregateDiskUsageShowsRootsAndGrandTotal(t *testing.T) {
 				TotalSizeBytes: 100,
 			}},
 			{Profile: "desktop-host", Report: daemon.DiskUsageReport{
-				WorkspacesRoot: "/home/u/multica_workspaces_desktop-host",
+				WorkspacesRoot: "/home/u/Multica/desktop-host",
 				Tasks:          []daemon.TaskDiskUsage{{WorkspaceShort: "ws1", TaskShort: "t1", SizeBytes: 900}},
 				TotalTaskCount: 1,
 				TotalSizeBytes: 900,
@@ -843,7 +843,7 @@ func TestPrintAggregateDiskUsageShowsRootsAndGrandTotal(t *testing.T) {
 	if !strings.Contains(got, "[default]") || !strings.Contains(got, "[desktop-host]") {
 		t.Fatalf("output = %q, want per-root section labels", got)
 	}
-	if !strings.Contains(got, "/home/u/multica_workspaces_desktop-host") {
+	if !strings.Contains(got, "/home/u/Multica/desktop-host") {
 		t.Fatalf("output = %q, want desktop root path", got)
 	}
 	if !strings.Contains(got, "Grand total:") || !strings.Contains(got, "across 2 run(s) in 2 root(s)") {
@@ -875,7 +875,7 @@ func mkdirProfile(t *testing.T, home, profile string) {
 
 func writeDiskUsageTaskFile(t *testing.T, home, profile, workspaceID, taskID, rel string) {
 	t.Helper()
-	path := filepath.Join(home, "multica_workspaces_"+profile, workspaceID, taskID, rel)
+	path := filepath.Join(home, "Multica", profile, workspaceID, taskID, rel)
 	writeDiskUsageFile(t, path)
 }
 

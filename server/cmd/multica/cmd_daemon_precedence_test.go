@@ -90,7 +90,7 @@ func TestResolveDaemonWorkspacesRootPrecedence(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolve default root: %v", err)
 	}
-	wantDefault := filepath.Join(home, "multica_workspaces_dev")
+	wantDefault := filepath.Join(home, "Multica", "dev")
 	if got != wantDefault {
 		t.Fatalf("default root = %q, want %q", got, wantDefault)
 	}

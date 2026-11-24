@@ -124,7 +124,7 @@ func setupDiskUsageProfile(t *testing.T, home, profile, token, serverURL, wsID, 
 	t.Helper()
 	root := filepath.Join(home, "multica_workspaces")
 	if profile != "" {
-		root += "_" + profile
+		root = filepath.Join(home, "Multica", profile)
 		mkdirProfile(t, home, profile)
 	}
 	writeDiskUsageIssueTask(t, root, wsID, taskShort, issueID)
@@ -490,7 +490,7 @@ func TestResolveDiskUsageRootTaskContext(t *testing.T) {
 		if err != nil {
 			t.Fatalf("resolveDiskUsageRoot: %v", err)
 		}
-		if want := filepath.Join(home, "multica_workspaces_staging"); got != want {
+		if want := filepath.Join(home, "Multica", "staging"); got != want {
 			t.Fatalf("root = %q, want %q", got, want)
 		}
 	})
